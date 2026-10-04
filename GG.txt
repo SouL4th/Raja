@@ -1,0 +1,275 @@
+Pract 1 - Show the use of Sentiment analysis using nltk library.
+import nltk
+from nltk.sentiment import SentimentIntensityAnalyzer as SIA
+
+nltk.download("vader_lexicon")
+s = SIA().polarity_scores(input("Enter a sentence: "))
+
+print("\nSentiment Scores:")
+print(s)
+print("Sentiment:", "Positive" if s["compound"] >= 0.05 else "Negative" if s["compound"] <= -0.05 else "Neutral")
+
+Pract 2- Calculate TF-IDF score of each word in each sentence with sklearn’s TFIDVectorizer.
+from sklearn.feature_extraction.text import TfidfVectorizer as T
+s = ["I love machine learning","I love data science","Machine learning is interesting"]
+v = T()
+t = v.fit_transform(s)
+print("Words:"); print(v.get_feature_names_out()); print("\nTF-IDF Scores:"); print(t.toarray())
+
+Pract 3- Perform Text Length Adaptation in Sentiment Classification.
+import pandas as pd
+
+data = pd.DataFrame({
+    "Text": ["I love this product", "This is amazing", "Very good quality",
+             "I hate this product", "Very bad experience", "Worst product ever"],
+    "Sentiment": ["Positive"] * 3 + ["Negative"] * 3
+})
+data["Text_Length"] = data["Text"].str.len()
+
+print(data[["Text", "Text_Length", "Sentiment"]])
+
+Pract 4-Show cross lingual Sentiment Analysis with an example. 
+from transformers import pipeline
+
+classifier = pipeline(
+    "sentiment-analysis",
+    model="cardiffnlp/twitter-xlm-roberta-base-sentiment"
+)
+
+texts = [
+    "I love this product!",
+    "मुझे यह उत्पाद बहुत पसंद है",
+    "This product is very bad.",
+    "यह उत्पाद बहुत खराब है"
+]
+
+for text in texts:
+    result = classifier(text)[0]
+    print(f"Text: {text}\nSentiment: {result['label']}"
+          f"\nConfidence: {round(result['score'], 2)}\n")
+
+Pract 5 - Perform Exploratory data analysis on a dataset to decipher insights.
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.feature_extraction.text import CountVectorizer
+
+df = pd.read_csv("/content/sentiment_dataset.csv")
+print("Shape:", df.shape)
+print(df.head())
+df.info()
+print(df.describe(include="all"))
+
+counts = df["sentiment"].value_counts()
+print(counts)
+
+sns.countplot(data=df, x="sentiment", hue="sentiment", legend=False)
+plt.title("Sentiment Distribution")
+plt.show()
+
+print("Balanced" if counts.max() == counts.min() else "Imbalanced")
+
+df["text_length"] = df["text"].str.split().str.len()
+sns.histplot(df["text_length"], bins=10, kde=True)
+plt.title("Text Length Distribution")
+plt.show()
+
+for sentiment in ["positive", "negative"]:
+    cv = CountVectorizer(stop_words="english")
+    text = df.loc[df["sentiment"] == sentiment, "text"]
+    words = pd.Series(
+        cv.fit_transform(text).sum(axis=0).A1,
+        index=cv.get_feature_names_out()
+    ).nlargest(10)
+
+    print(f"\nTop {sentiment} words:\n", words)
+    words.sort_values().plot(kind="barh", title=f"Top {sentiment.title()} Words")
+    plt.show()
+
+Pract 6- With the dataset, perform null value and outlier treatment.
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("sentiment_dataset.csv")
+before = len(df)
+df["text_length"] = df["text"].fillna("").str.split().str.len()
+
+print("Missing Values:\n", df.isnull().sum())
+print("Missing %:\n", df.isnull().mean() * 100)
+
+df["text"] = df["text"].fillna("Unknown")
+df["sentiment"] = df["sentiment"].fillna(df["sentiment"].mode()[0])
+
+sns.boxplot(x=df["text_length"])
+plt.title("Text Length Outliers")
+plt.show()
+
+q1, q3 = df["text_length"].quantile([0.25, 0.75])
+iqr = q3 - q1
+lower, upper = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+
+df = df[df["text_length"].between(lower, upper)]
+after = len(df)
+
+print("\nIQR:", iqr)
+print("Bounds:", lower, "to", upper)
+print("Rows Before:", before)
+print("Rows After:", after)
+print("Rows Removed:", before - after)
+
+df.to_csv("cleaned_sentiment_dataset.csv", index=False)
+
+Pract 7- Showcase an example of neutral texts classification.
+import nltk
+from nltk.sentiment import SentimentIntensityAnalyzer
+
+nltk.download("vader_lexicon")
+sia = SentimentIntensityAnalyzer()
+
+texts = [
+    "The meeting starts at 10 AM.",
+    "This product is excellent.",
+    "The service was terrible.",
+    "There is a book on the table.",
+    "The train arrived at the station."
+]
+
+for text in texts:
+    scores = sia.polarity_scores(text)
+    compound = scores["compound"]
+    sentiment = "Positive" if compound >= 0.05 else (
+        "Negative" if compound <= -0.05 else "Neutral"
+    )
+    print(f"Text: {text}\nSentiment: {sentiment}"
+          f"\nNeutral Score: {round(scores['neu'], 2)}"
+          f"\nCompound Score: {compound}\n")
+
+Pract 8- With an example, showcase the configuration of text classifier for positive or negative review.
+
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+
+X = [
+    "This laptop is good fast and reliable",
+    "This phone is good and excellent",
+    "The product is good and amazing",
+    "The service is good and friendly",
+    "The movie is good and enjoyable",
+    "This laptop is bad slow and unreliable",
+    "This phone is bad and terrible",
+    "The product is bad and useless",
+    "The service is bad and rude",
+    "The movie is bad and boring"
+]
+y = ["Positive"] * 5 + ["Negative"] * 5
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2, stratify=y)
+model = make_pipeline(TfidfVectorizer(stop_words="english"),
+                      LogisticRegression(C=10, max_iter=1000))
+                      .fit(X_train, y_train)
+predicted = model.predict(X_test)
+
+print("Accuracy:", model.score(X_test, y_test))
+print(classification_report(y_test, predicted, zero_division=0))
+
+ConfusionMatrixDisplay.from_predictions(
+    y_test, predicted, labels=["Positive", "Negative"], cmap="Blues"
+)
+plt.title("Positive and Negative Reviews")
+plt.show()
+
+review = ["This laptop is fast and reliable"]
+print("Input:", review[0])
+print("Predicted Class:", model.predict(review)[0])
+print("Confidence:", round(model.predict_proba(review).max(), 2))
+
+Pract 9- On a dataset, showcase the use of newton-cg on a Logistic regression model for replying to a positive review
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import accuracy_score, confusion_matrix
+
+reviews = """I love this product, it is amazing and works great
+Excellent quality, highly recommend to everyone
+Best purchase I have made this year, very happy
+Absolutely wonderful experience, will buy again
+Superb service and fantastic product quality
+Terrible product, completely waste of money
+Worst experience ever, do not buy this
+Very disappointed, it broke within a day
+Poor quality and bad customer service
+Awful product, totally useless and cheap""".splitlines()
+
+X_train, X_test, y_train, y_test = train_test_split(
+    reviews, [1]*5 + [0]*5, test_size=0.3, random_state=42
+)
+model = make_pipeline(
+    TfidfVectorizer(), LogisticRegression(solver="newton-cg", max_iter=1000)
+).fit(X_train, y_train)
+
+predicted = model.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, predicted))
+print("Confusion Matrix:\n", confusion_matrix(y_test, predicted))
+
+def predict_and_reply(review):
+    positive = model.predict([review])[0] == 1
+    return {
+        "sentiment": "Positive" if positive else "Negative",
+        "reply": (
+            "Thank you so much for your positive feedback! We're thrilled you enjoyed it. 😊"
+            if positive else
+            "We're sorry for your experience. Please contact support so we can make it right."
+        )
+    }
+
+sample = "This product is fantastic and I absolutely love it!"
+print("\nSample Review:", sample)
+print(predict_and_reply(sample))
+
+Pract 10- Create a sentiment analysis model for classifying an email into Spam and Ham. 
+import re
+from sklearn.model_selection import train_test_split as ts
+from sklearn.feature_extraction.text import TfidfVectorizer as TV
+from sklearn.naive_bayes import MultinomialNB as NB
+from sklearn.pipeline import make_pipeline as mp
+from sklearn.metrics import accuracy_score as a, precision_score as p, recall_score as r, confusion_matrix as c, classification_report as cr
+
+messages = """Congratulations! You won a free iPhone, click here to claim now
+URGENT: Your bank account is blocked, verify immediately
+Free entry into a $1000 prize draw, text WIN to 88886
+You have been selected for a cash reward of $5000
+Claim your free vacation package today, limited offer
+Win big money now, no cost involved, act fast
+Hey, are we still meeting for lunch tomorrow?
+Please send me the report by end of day
+I will call you back in 10 minutes
+Happy birthday! Hope you have a wonderful day
+Can you pick up some milk on your way home?
+Let me know if you need any help with the project""".splitlines()
+
+clean = lambda t: re.sub(r"[^a-z0-9\s]", "", t.lower())
+Y = ["spam"]*6 + ["ham"]*6
+X, Xt, y, yt = ts(messages, Y, test_size=.3, random_state=42, stratify=Y)
+
+model = mp(TV(preprocessor=clean, stop_words="english"), NB()).fit(X, y)
+y_pred = model.predict(Xt)
+
+print("Accuracy :", a(yt, y_pred))
+print("Precision:", p(yt, y_pred, pos_label="spam"))
+print("Recall   :", r(yt, y_pred, pos_label="spam"))
+print("Confusion Matrix:\n", c(yt, y_pred, labels=["ham", "spam"]))
+print("\nClassification Report:\n", cr(yt, y_pred))
+
+S = [
+    "You have won a free ticket, claim now!",
+    "Let's catch up over coffee this weekend",
+    "Get rich quick, click this link to earn $10000"
+]
+_ = [print(f"'{s}' -> {model.predict([s])[0].upper()}") for s in S]
